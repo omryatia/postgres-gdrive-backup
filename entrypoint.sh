@@ -1,17 +1,32 @@
 #!/bin/bash
 set -e
 
-# Check if GOOGLE_CREDENTIALS environment variable exists
-if [ -z "$GOOGLE_CREDENTIALS" ]; then
-    echo "ERROR: GOOGLE_CREDENTIALS environment variable is not set!"
-    echo "Please set the GOOGLE_CREDENTIALS environment variable with the contents of your credentials.json file"
+# Check if GOOGLE_SERVICE_ACCOUNT environment variable exists
+if [ -z "$GOOGLE_SERVICE_ACCOUNT" ]; then
+    echo "ERROR: GOOGLE_SERVICE_ACCOUNT environment variable is not set!"
+    echo "Please set the GOOGLE_SERVICE_ACCOUNT environment variable with the contents of your service account JSON file"
     exit 1
 fi
+
+# Set up health check endpoint
+cat > /app/health.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head><title>PostgreSQL Backup Service</title></head>
+<body>
+  <h1>PostgreSQL Backup Service</h1>
+  <p>Service is running correctly.</p>
+</body>
+</html>
+EOF
+
+# Start HTTP server for health checks
+python -m http.server 8080 --directory /app &
 
 # Check if custom cron schedule is defined
 if [ -n "$CRON_SCHEDULE" ]; then
     echo "Using custom cron schedule: $CRON_SCHEDULE"
-    echo "$CRON_SCHEDULE /usr/local/bin/python /app/pg_backup.py >> /proc/1/fd/1 2>&1" > /etc/cron.d/pg-backup
+    echo "$CRON_SCHEDULE /app/version_detect.sh >> /proc/1/fd/1 2>&1" > /etc/cron.d/pg-backup
     chmod 0644 /etc/cron.d/pg-backup
     crontab /etc/cron.d/pg-backup
 fi
@@ -19,12 +34,7 @@ fi
 # Run initial backup if requested
 if [ "$RUN_ON_STARTUP" = "true" ]; then
     echo "Running initial backup..."
-    python /app/pg_backup.py
-    
-    # Check if GOOGLE_TOKEN was set during the initial run
-    if [ -n "$GOOGLE_TOKEN" ]; then
-        echo "Token successfully generated. Please add this token as GOOGLE_TOKEN environment variable in Railway to avoid authentication prompts in the future."
-    fi
+    /app/version_detect.sh
 fi
 
 # Start cron service
