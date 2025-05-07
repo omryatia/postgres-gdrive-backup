@@ -229,7 +229,7 @@ def share_file_with_user(service, file_id, user_email):
         # Create permission for the user
         permission = {
             'type': 'user',
-            'role': 'owner',
+            'role': 'writer',
             'emailAddress': user_email
         }
         
