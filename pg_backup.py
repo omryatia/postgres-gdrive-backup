@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-PostgreSQL Google Drive Backup Script with tar.gz Compression
+PostgreSQL Google Drive Backup Script with Multi-Version Support
 
 This script:
-1. Creates a backup of a PostgreSQL database
-2. Compresses the backup using tar.gz for smaller file size
-3. Uploads it to Google Drive using local token storage
-4. Manages retention by removing old backups from Google Drive
+1. Uses the pg_dump command detected by version_detect.sh
+2. Creates a backup of a PostgreSQL database
+3. Compresses the backup using tar.gz for smaller file size
+4. Uploads it to Google Drive using local token storage
+5. Manages retention by removing old backups from Google Drive
 """
 
 import os
@@ -64,6 +65,9 @@ def create_postgres_backup(temp_dir):
     pg_password = get_env_or_default("PGPASSWORD", required=True)
     pg_database = get_env_or_default("PGDATABASE", required=True)
     
+    # Get pg_dump command from environment variable (set by version_detect.sh)
+    pg_dump_cmd = get_env_or_default("PG_DUMP_CMD", "pg_dump")
+    
     # Create timestamped filenames
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     plain_dump_filename = f"postgres_dump_{timestamp}.sql"
@@ -78,7 +82,7 @@ def create_postgres_backup(temp_dir):
     
     # Build pg_dump command for SQL output (plain text for better compression)
     cmd = [
-        "pg_dump",
+        pg_dump_cmd,
         "-h", pg_host,
         "-p", pg_port,
         "-U", pg_user,
@@ -90,7 +94,7 @@ def create_postgres_backup(temp_dir):
         pg_database
     ]
     
-    logger.info(f"Creating PostgreSQL backup: {plain_dump_path}")
+    logger.info(f"Creating PostgreSQL backup using {pg_dump_cmd}: {plain_dump_path}")
     
     try:
         # Create the SQL dump
