@@ -11,11 +11,6 @@ RUN apt-get update && \
     cron \
     && rm -rf /var/lib/apt/lists/*
 
-# Create directories for backups, secrets, and logs
-RUN mkdir -p /backups /secrets /var/log && \
-    touch /var/log/pg_backup.log && \
-    chmod 777 /var/log/pg_backup.log
-
 # Set working directory
 WORKDIR /app
 
@@ -27,17 +22,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY pg_backup.py .
 RUN chmod +x pg_backup.py
 
-# Set up default cron job (daily at 2:00 AM)
-RUN echo "0 2 * * * /usr/local/bin/python /app/pg_backup.py >> /var/log/pg_backup.log 2>&1" > /etc/cron.d/pg-backup && \
-    chmod 0644 /etc/cron.d/pg-backup && \
-    crontab /etc/cron.d/pg-backup
-
 # Copy entrypoint script
 COPY entrypoint.sh .
 RUN chmod +x /app/entrypoint.sh
 
-# Volume for persistent data
-VOLUME ["/backups", "/secrets"]
+# Set up default cron job (daily at 2:00 AM)
+RUN echo "0 2 * * * /usr/local/bin/python /app/pg_backup.py >> /proc/1/fd/1 2>&1" > /etc/cron.d/pg-backup && \
+    chmod 0644 /etc/cron.d/pg-backup && \
+    crontab /etc/cron.d/pg-backup
 
 # Start cron service (which will run the backup script based on schedule)
 ENTRYPOINT ["/app/entrypoint.sh"]
