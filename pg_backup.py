@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 PostgreSQL Google Drive Backup Script with Service Account Authentication
+and File Sharing to Personal Account
 
 This script:
 1. Creates a backup of a PostgreSQL database
 2. Compresses the backup using tar.gz for smaller file size
-3. Uploads it to Google Drive using a service account (no browser flow required)
-4. Manages retention by removing old backups from Google Drive
+3. Uploads it to Google Drive using a service account
+4. Shares the uploaded file with your personal Google account
+5. Manages retention by removing old backups from Google Drive
 """
 
 import os
@@ -211,9 +213,37 @@ def upload_to_google_drive(service, file_path, folder_id):
         ).execute()
         
         logger.info(f"Upload successful, file ID: {file.get('id')}")
-        return True
+        return file.get('id')
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}")
+        return None
+
+
+def share_file_with_user(service, file_id, user_email):
+    """Share a file with a specific user."""
+    if not user_email:
+        logger.warning("No user email provided for sharing. Skipping share step.")
+        return False
+
+    try:
+        # Create permission for the user
+        permission = {
+            'type': 'user',
+            'role': 'owner',
+            'emailAddress': user_email
+        }
+        
+        result = service.permissions().create(
+            fileId=file_id,
+            body=permission,
+            fields='id',
+            sendNotificationEmail=True
+        ).execute()
+        
+        logger.info(f"File shared successfully with {user_email}")
+        return True
+    except Exception as e:
+        logger.error(f"Error sharing file: {str(e)}")
         return False
 
 
@@ -245,6 +275,7 @@ def main():
     # Get configuration from environment variables
     retention_days = int(get_env_or_default("RETENTION_DAYS", DEFAULT_RETENTION_DAYS))
     gdrive_folder = get_env_or_default("GDRIVE_FOLDER", DEFAULT_GOOGLE_DRIVE_FOLDER_NAME)
+    share_email = get_env_or_default("SHARE_EMAIL", "")
     
     # Create temporary directory for backup
     temp_dir = tempfile.mkdtemp()
@@ -271,11 +302,16 @@ def main():
             sys.exit(1)
         
         # Step 4: Upload backup to Google Drive
-        if not upload_to_google_drive(service, backup_path, folder_id):
+        file_id = upload_to_google_drive(service, backup_path, folder_id)
+        if not file_id:
             logger.error("Upload to Google Drive failed.")
             sys.exit(1)
         
-        # Step 5: Clean up old backups on Google Drive
+        # Step 5: Share the file with user if email is provided
+        if share_email:
+            share_file_with_user(service, file_id, share_email)
+        
+        # Step 6: Clean up old backups on Google Drive
         if retention_days > 0:
             delete_old_backups_gdrive(service, folder_id, retention_days)
         
