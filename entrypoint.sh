@@ -1,13 +1,6 @@
 #!/bin/bash
 set -e
 
-# Check if GOOGLE_SERVICE_ACCOUNT environment variable exists
-if [ -z "$GOOGLE_SERVICE_ACCOUNT" ]; then
-    echo "ERROR: GOOGLE_SERVICE_ACCOUNT environment variable is not set!"
-    echo "Please set the GOOGLE_SERVICE_ACCOUNT environment variable with the contents of your service account JSON file"
-    exit 1
-fi
-
 # Set up health check endpoint
 cat > /app/health.html << 'EOF'
 <!DOCTYPE html>
