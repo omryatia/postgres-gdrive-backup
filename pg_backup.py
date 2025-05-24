@@ -133,8 +133,12 @@ def create_postgres_backup(temp_dir):
 def authenticate_google_drive():
     """Authenticate with Google Drive API using service account."""
     # Get service account JSON from environment variable
-    service_account_json = get_env_or_default("GOOGLE_SERVICE_ACCOUNT", required=True)
-    
+    service_account_json = get_env_or_default("GOOGLE_SERVICE_ACCOUNT")
+
+    if not service_account_json:
+        logger.warning("GOOGLE_SERVICE_ACCOUNT environment variable is not set. Skipping Google Drive operations.")
+        return None
+
     try:
         # Create temporary file for service account credentials
         with tempfile.NamedTemporaryFile(mode='w+', delete=False) as temp_file:
@@ -288,35 +292,36 @@ def main():
             sys.exit(1)
         
         # Step 2: Authenticate with Google Drive using service account
-        try:
-            service = authenticate_google_drive()
-        except Exception as e:
-            logger.error(f"Google Drive authentication failed: {str(e)}")
-            sys.exit(1)
-        
-        # Step 3: Get or create folder in Google Drive
-        try:
-            folder_id = get_or_create_folder(service, gdrive_folder)
-        except Exception as e:
-            logger.error(f"Failed to get/create Google Drive folder: {str(e)}")
-            sys.exit(1)
-        
-        # Step 4: Upload backup to Google Drive
-        file_id = upload_to_google_drive(service, backup_path, folder_id)
-        if not file_id:
-            logger.error("Upload to Google Drive failed.")
-            sys.exit(1)
-        
-        # Step 5: Share the file with user if email is provided
-        if share_email:
-            share_file_with_user(service, file_id, share_email)
-        
-        # Step 6: Clean up old backups on Google Drive
-        if retention_days > 0:
-            delete_old_backups_gdrive(service, folder_id, retention_days)
-        
-        logger.info("Backup process completed successfully")
-    
+        service = authenticate_google_drive()
+
+        # Check if authentication was successful
+        if service:
+            # Step 3: Get or create folder in Google Drive
+            try:
+                folder_id = get_or_create_folder(service, gdrive_folder)
+            except Exception as e:
+                logger.error(f"Failed to get/create Google Drive folder: {str(e)}")
+                sys.exit(1)
+            
+            # Step 4: Upload backup to Google Drive
+            file_id = upload_to_google_drive(service, backup_path, folder_id)
+            if not file_id:
+                logger.error("Upload to Google Drive failed.")
+                sys.exit(1)
+            
+            # Step 5: Share the file with user if email is provided
+            if share_email:
+                share_file_with_user(service, file_id, share_email)
+            
+            # Step 6: Clean up old backups on Google Drive
+            if retention_days > 0:
+                delete_old_backups_gdrive(service, folder_id, retention_days)
+            
+            logger.info("Backup process completed successfully (Google Drive operations included).")
+        else:
+            # Log that Google Drive steps are skipped
+            logger.info("Backup created, but Google Drive operations skipped due to missing configuration.")
+
     finally:
         # Clean up temporary files
         try:
