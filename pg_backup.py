@@ -50,7 +50,7 @@ def get_env_or_default(var_name, default=None, required=False):
     value = os.environ.get(var_name, default)
     if required and not value:
         logger.error(f"Required environment variable {var_name} is not set")
-        sys.exit(1)
+        return None
     return value
 
 
