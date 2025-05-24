@@ -288,7 +288,10 @@ def main():
         logger.error("One or more required PostgreSQL environment variables (PGHOST, PGUSER, PGPASSWORD, PGDATABASE) are not set. Exiting.")
         sys.exit(1)
 
-    # Create temporary directory for backup
+    # Authenticate with Google Drive using service account
+    service = authenticate_google_drive()
+
+    # Create temporary directory for backup and set up cleanup
     temp_dir = tempfile.mkdtemp()
     
     try:
@@ -301,9 +304,6 @@ def main():
             if not backup_path:
                 logger.error("Backup creation failed. Exiting.")
                 sys.exit(1)
-            
-            # Step 2: Authenticate with Google Drive using service account
-            service = authenticate_google_drive()
             
             can_proceed_with_gdrive_ops = True
             
